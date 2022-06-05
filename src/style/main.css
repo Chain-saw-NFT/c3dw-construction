@@ -3,10 +3,19 @@
     margin: 0;
 }
 
-body,
+body {
+    display: block !important;
+}
+
 html {
+    background-image: url("../img/crane.jpg");
+    background-size: cover;
     overflow: hidden;
     background-color: skyblue;
+}
+
+.hoverable:hover {
+    transform: scale(1.25);
 }
 
 .webgl {
@@ -54,6 +63,7 @@ html {
     left: 40px;
     top:30%;
     max-height: 33vh;
+    
 }
 
 #veg {

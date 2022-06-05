@@ -1,27 +1,14 @@
 import './style/main.css'
 import * as THREE from 'three'
+//import * as dat from 'dat.gui'
+import gsap from "gsap"
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import * as dat from 'dat.gui'
-import { Vector3 } from 'three'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 //const gui = new dat.GUI()
-
-
-const canvas = document.querySelector('canvas.webgl')
-
-
-const scene = new THREE.Scene()
-scene.background = null;
-const geometry = new THREE.IcosahedronGeometry(20, 1)
-const material = new THREE.MeshNormalMaterial()
-
-
-material.wireframe = false
-// Create Mesh & Add To Scene
-const mesh = new THREE.Mesh(geometry, material)
-//scene.add(mesh)
-
-
+var controls;
+var camera, bg_camera, scene, renderer, mixer, clock;
+var gimbal = new THREE.Group();
 
 const sizes = {
   width: window.innerWidth,
@@ -31,100 +18,113 @@ const sizes = {
 window.addEventListener('resize', () => {
   sizes.width = window.innerWidth
   sizes.height = window.innerHeight
-
   camera.aspect = sizes.width / sizes.height
   camera.updateProjectionMatrix()
-
   renderer.setSize(sizes.width, sizes.height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setPixelRatio(window.devicePixelRatio)
 })
 
-const camera = new THREE.PerspectiveCamera(
-  75,
-  sizes.width / sizes.height,
-  0.001,
-  5000
-)
-camera.position.x = 0
-camera.position.y = 25 
-camera.position.z = 20
-scene.add(camera)
+init();
+animate();
 
 
-const controls = new OrbitControls(camera, canvas)
-controls.enableDamping = true
-controls.autoRotate = true
-controls.autoRotateSpeed = 0.2;
-controls.enableZoom = false
-controls.enablePan = false
-controls.dampingFactor = 0.05
-controls.maxDistance = 1000
-controls.minDistance = 30
-controls.target = new THREE.Vector3(0,25,0);
-controls.touches = {
-  ONE: THREE.TOUCH.ROTATE,
-  TWO: THREE.TOUCH.DOLLY_PAN,
-}
-/**
- * Renderer
- */
-const renderer = new THREE.WebGLRenderer({
-  canvas: canvas,
-  antialias: true,
-  alpha: true,
-  logarithmicDepthBuffer: true
-})
-renderer.setSize(sizes.width, sizes.height)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+function init() {
+  const canvas = document.querySelector('canvas.webgl')
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.25, 2000);
+  camera.position.set(0, 40, 100);
+  scene = new THREE.Scene();
+  clock = new THREE.Clock();
+  bg_camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.25, 2000);
+  bg_camera.position.set(0, 40, 100);
 
-  var loader = new GLTFLoader();
-  const loadModel = new Promise((resolve) => {
-      loader.load("c3dw.glb", (gltf) => {
-          const tempModel = gltf.scene;
-          gltf.scene.traverse( function ( obj ) {
-            if(obj.isMesh || obj.isSkinnedMesh){
-              obj.material.roughness = 0.4;
-              if(obj.name === 'Mesh_0') obj.material.side = 0; obj.material.transparent = true;
-            }
-          });
-          const whitePlane = new THREE.Mesh( new THREE.PlaneGeometry( 2, 1 ), new THREE.MeshBasicMaterial( {color: 0x000000} ) );
-          whitePlane.rotateY(Math.PI*0.5);
-          whitePlane.position.set(0.5,25.1,0.2);
-          tempModel.add(whitePlane);
-          tempModel.rotateY(Math.PI*-0.5);
-          tempModel.scale.set(1.3,1.3,1.3);
-          scene.add(tempModel);
-          resolve(tempModel);
+  new RGBELoader()
+    .setDataType(THREE.UnsignedByteType)
+    .setPath('https://threejs.org/examples/textures/equirectangular/')
+    .load('venice_sunset_1k.hdr', function (texture) {
+
+      var envMap = pmremGenerator.fromEquirectangular(texture).texture;
+      scene.background = null;
+      scene.environment = envMap;
+      texture.dispose();
+      pmremGenerator.dispose();
+
+      var loader = new GLTFLoader();
+      loader.load("c3dw.glb", function (gltf) {
+        gltf.scene.scale.set(0.5, 0.5, 0.5);
+        gltf.scene.rotateY(Math.PI * -0.5);
+        gltf.scene.position.set(3.2, -4, -144);
+        gimbal.add(gltf.scene);
+        gimbal.rotation.set(0, -6.29, 0);
+        scene.add(gimbal);
+        mixer = new THREE.AnimationMixer(gltf.scene);
+        gltf.animations.forEach((clip) => {
+          mixer.clipAction(clip).play();
+        });
+        /*var cam = gui.addFolder('Camera');
+        cam.add(gimbal.rotation, 'x', 0, 2*Math.PI).listen()
+        cam.add(gimbal.rotation, 'y', -2*Math.PI, 2*Math.PI).listen()
+        cam.add(gimbal.rotation, 'z', 0, 2*Math.PI).listen()
+        cam.open();*/
       });
-  });
-  loadModel;
+      ///Load Floating Images
+      const texloader = new THREE.TextureLoader();
+      for (let i = 1; i < 25; i++) {
+        texloader.load(
+          `textures/${i}.png`,
+          function (texture) {
+            texture.encoding = THREE.sRGBEncoding
+            const material = new THREE.SpriteMaterial({
+              map: texture,
+              transparent: true,
+              sizeAttenuation: false,
+            });
+            const sprite = new THREE.Sprite(material)
+            sprite.scale.set(0.2, 0.2, 1)
+            sprite.position.set((Math.random() * 800) - 400, (Math.random() * 380) - 190, -470 - (Math.random() * 100))
+            sprite.rotateZ(Math.PI * Math.random())
+            scene.add(sprite)
+          },
+          function (err) {
+            console.error('Image load error: '+err);
+          }
+        );
+      }
 
-  const light = new THREE.AmbientLight( 0x404040 );
-  light.intensity = 2.9;
-  scene.add( light );
+    });
 
-  const directionalLight = new THREE.DirectionalLight( 0xffffff, 1.5 );
-  directionalLight.position.set(-10,30,-3);
-  directionalLight.target.position.set( -10,0,3 );
-  scene.add( directionalLight );
-/**
- * Animate
- */
-const clock = new THREE.Clock()
-const tick = () => {
-  const elapsedTime = clock.getElapsedTime()
+  renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas, alpha: true });
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(window.devicePixelRatio)
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.8;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  var pmremGenerator = new THREE.PMREMGenerator(renderer);
+  pmremGenerator.compileEquirectangularShader();
+  controls = new OrbitControls(camera, canvas);
+  controls.enableRotate = false;
+  controls.enableZoom = false;
+  controls.enablePan = false;
+  //controls.autoRotate = true
+  //controls.autoRotateSpeed = 1//0.15;
+  controls.minDistance = 2;
+  controls.maxDistance = 28;
+  controls.target.set(0, 32, 0);
+  controls.update();
 
-  //mesh.rotation.y += 0.01 * Math.sin(1)
-  //mesh.rotation.y += 0.01 * Math.sin(1)
-  //mesh.rotation.z += 0.01 * Math.sin(1)
-
-  // Update controls
-  controls.update()
-  // Render
-  renderer.render(scene, camera)
-
-  // Call tick again on the next frame
-  window.requestAnimationFrame(tick)
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+  directionalLight.position.set(-10, 30, -3);
+  directionalLight.target.position.set(0, 0, 0);
+  scene.add(directionalLight);
 }
 
-tick()
+function animate() {
+
+  requestAnimationFrame(animate);
+  var delta = clock.getDelta();
+  if (mixer) mixer.update(delta);
+
+  gsap.to(gimbal.rotation, { y: 0 });
+
+  controls.update()
+  renderer.render(scene, camera);
+}
