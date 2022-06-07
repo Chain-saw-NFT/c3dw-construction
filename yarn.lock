@@ -5049,11 +5049,6 @@ three@^0.116.1:
   resolved "https://registry.npmjs.org/three/-/three-0.116.1.tgz"
   integrity sha512-l2JCMiA/lVZAuSrLWRYMalvpR+0j8hbIhCpfs4V6JFnw2+JQEQJ5HltNpfFr+9TDpQts1BhtcISehWf/xBGPvQ==
 
-threejs-object-controls@^1.2.8:
-  version "1.2.8"
-  resolved "https://registry.npmjs.org/threejs-object-controls/-/threejs-object-controls-1.2.8.tgz"
-  integrity sha512-FGJUyEhprq6uOU6qOI25Kp627MkpQnMUr3TktMkJAcXr4Pt/ZT/8+B1SCWRbLvR+dnXnM3GC6YT5rxm2ybsyAQ==
-
 through2@^0.6.3:
   version "0.6.5"
   resolved "https://registry.npmjs.org/through2/-/through2-0.6.5.tgz"

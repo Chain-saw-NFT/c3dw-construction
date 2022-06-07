@@ -5,7 +5,7 @@ import { gsap }from "gsap"
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { ObjectControls } from 'threeJS-object-controls';
+import { ObjectControls } from './vendor/ObjectControls';
 //const gui = new dat.GUI()
 var controls;
 var camera, bg_camera, scene, renderer, mixer, clock, sound, rotateTip;
