@@ -71,7 +71,8 @@ module.exports = {
                     'raw-loader',
                     'glslify-loader'
                 ]
-            }
+            },
+            { test: /\.mp3$/, use: 'file-loader' }
         ]
     }
 }

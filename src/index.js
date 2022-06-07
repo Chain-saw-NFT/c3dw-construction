@@ -1,18 +1,50 @@
 import './style/main.css'
 import * as THREE from 'three'
 //import * as dat from 'dat.gui'
-import gsap from "gsap"
+import { gsap }from "gsap"
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+import { ObjectControls } from 'threeJS-object-controls';
 //const gui = new dat.GUI()
 var controls;
-var camera, bg_camera, scene, renderer, mixer, clock;
+var camera, bg_camera, scene, renderer, mixer, clock, sound, rotateTip;
 var gimbal = new THREE.Group();
+var sprites = [];
+var firstPlay = false;
 
 const sizes = {
   width: window.innerWidth,
   height: window.innerHeight,
+}
+
+var element = document.getElementById("three");
+var playButton = document.getElementById("playButton");
+playButton.src = 'icons/play.svg'
+
+element.onclick = function (event) {
+  if (!firstPlay) {
+    sound.play();
+    playButton.src = 'icons/pause.svg'
+    firstPlay = true;
+  }
+}
+
+playButton.onclick = function (event) {
+  if (!firstPlay) {
+    sound.play();
+    playButton.src = 'icons/pause.svg'
+    firstPlay = true;
+  }
+  else {
+    if (sound.isPlaying) {
+      sound.pause();
+      playButton.src = 'icons/play.svg'
+    } else {
+      sound.play();
+      playButton.src = 'icons/pause.svg'
+    }
+  }
 }
 
 window.addEventListener('resize', () => {
@@ -54,17 +86,13 @@ function init() {
         gltf.scene.rotateY(Math.PI * -0.5);
         gltf.scene.position.set(3.2, -4, -144);
         gimbal.add(gltf.scene);
-        gimbal.rotation.set(0, -6.29, 0);
+        gimbal.rotation.set(0, -6.29 * 2, 0);
         scene.add(gimbal);
         mixer = new THREE.AnimationMixer(gltf.scene);
         gltf.animations.forEach((clip) => {
           mixer.clipAction(clip).play();
         });
-        /*var cam = gui.addFolder('Camera');
-        cam.add(gimbal.rotation, 'x', 0, 2*Math.PI).listen()
-        cam.add(gimbal.rotation, 'y', -2*Math.PI, 2*Math.PI).listen()
-        cam.add(gimbal.rotation, 'z', 0, 2*Math.PI).listen()
-        cam.open();*/
+
       });
       ///Load Floating Images
       const texloader = new THREE.TextureLoader();
@@ -81,15 +109,28 @@ function init() {
             const sprite = new THREE.Sprite(material)
             sprite.scale.set(0.2, 0.2, 1)
             sprite.position.set((Math.random() * 800) - 400, (Math.random() * 380) - 190, -470 - (Math.random() * 100))
-            sprite.rotateZ(Math.PI * Math.random())
+            sprite.up = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, 0);
+            sprite.frustumCulled = false;
+            sprites.push(sprite)
             scene.add(sprite)
           },
           function (err) {
-            console.error('Image load error: '+err);
+            console.error('Image load error: ' + err);
           }
         );
       }
-
+      texloader.load(
+        `icons/rotate.png`,
+        function (texture) {
+          texture.encoding = THREE.sRGBEncoding
+          rotateTip = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, map: texture, color: 'white', sizeAttenuation: false, depthTest: false, depthTest: false, opacity: 0 }))
+          rotateTip.scale.set(0.2, 0.2, 1)
+          rotateTip.position.z = -400
+          scene.add(rotateTip)
+          /*var cam = gui.addFolder('Camera');
+          cam.add(rotateTip.position, 'z', -1000, 900).listen()
+          cam.open();*/
+        })
     });
 
   renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas, alpha: true });
@@ -115,15 +156,49 @@ function init() {
   directionalLight.position.set(-10, 30, -3);
   directionalLight.target.position.set(0, 0, 0);
   scene.add(directionalLight);
+  var objectControls = new ObjectControls(camera, renderer.domElement, gimbal);
+  objectControls.disableZoom();
+  objectControls.enableHorizontalRotation();
+  objectControls.setRotationSpeed(0.03);
+
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+
+  // create a global audio source
+  sound = new THREE.Audio(listener);
+
+  // load a sound and set it as the Audio object's buffer
+  const audioLoader = new THREE.AudioLoader();
+  audioLoader.load('audio/portraits.mp3', function (buffer) {
+    sound.setBuffer(buffer);
+    sound.setLoop(true);
+    sound.setVolume(0.5);
+    //sound.play();
+  });
 }
 
-function animate() {
 
+function animate() {
   requestAnimationFrame(animate);
   var delta = clock.getDelta();
   if (mixer) mixer.update(delta);
 
-  gsap.to(gimbal.rotation, { y: 0 });
+  if (clock.elapsedTime < 1) {
+    gsap.to(rotateTip.material, {delay: 1.5,duration: 2, opacity: 1 , ease:"power.in"});
+    gsap.to(gimbal.rotation, { y: 0 });
+  }else if(clock.elapsedTime > 3){
+    gsap.to(rotateTip.material, {duration: 1, opacity: 0 , ease:"power2.out"});
+  }/*else if(clock.elapsedTime < 3){
+    gsap.to(rotateTip.material, { opacity: 0 });
+  }*/
+
+  sprites.forEach((sprite) => {
+    sprite.translateOnAxis(sprite.up, 0.2)
+    if (sprite.position.x > 500 || sprite.position.x < -500 || sprite.position.y > 440 || sprite.position.y < -440) {
+      sprite.position.set((Math.random() * 800) - 400, (Math.random() * 380) - 190, -470 - (Math.random() * 100))
+      sprite.up = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, 0);
+    }
+  })
 
   controls.update()
   renderer.render(scene, camera);
