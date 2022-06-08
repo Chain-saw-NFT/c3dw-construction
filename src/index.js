@@ -8,10 +8,11 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
 import { ObjectControls } from './vendor/ObjectControls';
 //const gui = new dat.GUI()
 var controls;
-var camera, bg_camera, scene, renderer, mixer, clock, sound, rotateTip;
+var camera, bg_camera, scene, renderer, mixer, clock, sound, objectControls;
 var gimbal = new THREE.Group();
 var sprites = [];
 var firstPlay = false;
+var rotateTip = new THREE.SpriteMaterial({ transparent: true, color: 'white', sizeAttenuation: false, depthTest: false, depthTest: false, opacity: 0 })
 
 const sizes = {
   width: window.innerWidth,
@@ -55,6 +56,10 @@ window.addEventListener('resize', () => {
   renderer.setSize(sizes.width, sizes.height)
   renderer.setPixelRatio(window.devicePixelRatio)
 })
+
+function isMobile() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
 
 init();
 animate();
@@ -123,10 +128,11 @@ function init() {
         `icons/rotate.png`,
         function (texture) {
           texture.encoding = THREE.sRGBEncoding
-          rotateTip = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, map: texture, color: 'white', sizeAttenuation: false, depthTest: false, depthTest: false, opacity: 0 }))
-          rotateTip.scale.set(0.2, 0.2, 1)
-          rotateTip.position.z = -400
-          scene.add(rotateTip)
+          rotateTip.map = texture;
+          const tempSprite = new THREE.Sprite(rotateTip)
+          tempSprite.scale.set(0.2, 0.2, 1)
+          tempSprite.position.z = -400
+          scene.add(tempSprite)
           /*var cam = gui.addFolder('Camera');
           cam.add(rotateTip.position, 'z', -1000, 900).listen()
           cam.open();*/
@@ -145,10 +151,8 @@ function init() {
   controls.enableRotate = false;
   controls.enableZoom = false;
   controls.enablePan = false;
-  //controls.autoRotate = true
-  //controls.autoRotateSpeed = 1//0.15;
   controls.minDistance = 2;
-  controls.maxDistance = 28;
+  controls.maxDistance = isMobile()? 50:28 //28 for desktop
   controls.target.set(0, 32, 0);
   controls.update();
 
@@ -156,10 +160,10 @@ function init() {
   directionalLight.position.set(-10, 30, -3);
   directionalLight.target.position.set(0, 0, 0);
   scene.add(directionalLight);
-  var objectControls = new ObjectControls(camera, renderer.domElement, gimbal);
+  objectControls = new ObjectControls(camera, renderer.domElement, gimbal);
   objectControls.disableZoom();
   objectControls.enableHorizontalRotation();
-  objectControls.setRotationSpeed(0.03);
+  objectControls.setRotationSpeed(0.04);
 
   const listener = new THREE.AudioListener();
   camera.add(listener);
@@ -184,13 +188,14 @@ function animate() {
   if (mixer) mixer.update(delta);
 
   if (clock.elapsedTime < 1) {
-    gsap.to(rotateTip.material, {delay: 1.5,duration: 2, opacity: 1 , ease:"power.in"});
+    gsap.to(rotateTip, {delay: 1.5,duration: 2, opacity: 1 , ease:"power.in"});
     gsap.to(gimbal.rotation, { y: 0 });
   }else if(clock.elapsedTime > 3){
-    gsap.to(rotateTip.material, {duration: 1, opacity: 0 , ease:"power2.out"});
-  }/*else if(clock.elapsedTime < 3){
-    gsap.to(rotateTip.material, { opacity: 0 });
-  }*/
+    gsap.to(rotateTip, {duration: 1, opacity: 0 , ease:"power2.out"});
+  }
+  if(!objectControls.isUserInteractionActive() && clock.elapsedTime > 1){
+   gimbal.rotation.y += 0.001;
+  }
 
   sprites.forEach((sprite) => {
     sprite.translateOnAxis(sprite.up, 0.2)
