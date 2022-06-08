@@ -5,14 +5,14 @@ import { gsap }from "gsap"
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
-import { ObjectControls } from './vendor/ObjectControls';
+
 //const gui = new dat.GUI()
 var controls;
-var camera, bg_camera, scene, renderer, mixer, clock, sound, objectControls;
+var camera, bg_camera, scene, renderer, mixer, clock, sound;
 var gimbal = new THREE.Group();
 var sprites = [];
 var firstPlay = false;
-var rotateTip = new THREE.SpriteMaterial({ transparent: true, color: 'white', sizeAttenuation: false, depthTest: false, depthTest: false, opacity: 0 })
+//var rotateTip = new THREE.SpriteMaterial({ transparent: true, color: 'white'})//, sizeAttenuation: false, depthTest: false, depthTest: false, opacity: 0 })
 
 const sizes = {
   width: window.innerWidth,
@@ -21,6 +21,9 @@ const sizes = {
 
 var element = document.getElementById("three");
 var playButton = document.getElementById("playButton");
+var rotateTip = document.getElementById("rotatetip");
+rotateTip.style.opacity = 0;
+
 playButton.src = 'icons/play.svg'
 
 element.onclick = function (event) {
@@ -124,19 +127,19 @@ function init() {
           }
         );
       }
-      texloader.load(
+      /*texloader.load(
         `icons/rotate.png`,
         function (texture) {
           texture.encoding = THREE.sRGBEncoding
           rotateTip.map = texture;
           const tempSprite = new THREE.Sprite(rotateTip)
-          tempSprite.scale.set(0.2, 0.2, 1)
-          tempSprite.position.z = -400
+          tempSprite.scale.set(100, 100, 1)
+          tempSprite.position.set(controls.target.x,controls.target.y,controls.target.z)
           scene.add(tempSprite)
           /*var cam = gui.addFolder('Camera');
           cam.add(rotateTip.position, 'z', -1000, 900).listen()
           cam.open();*/
-        })
+        //})*/
     });
 
   renderer = new THREE.WebGLRenderer({ antialias: true, canvas: canvas, alpha: true });
@@ -148,22 +151,26 @@ function init() {
   var pmremGenerator = new THREE.PMREMGenerator(renderer);
   pmremGenerator.compileEquirectangularShader();
   controls = new OrbitControls(camera, canvas);
-  controls.enableRotate = false;
+  controls.enableRotate = true;
   controls.enableZoom = false;
   controls.enablePan = false;
   controls.minDistance = 2;
   controls.maxDistance = isMobile()? 50:28 //28 for desktop
   controls.target.set(0, 32, 0);
+  controls.maxPolarAngle =  Math.PI*0.6
+  controls.minPolarAngle = Math.PI*0.3
+  controls.autoRotate = true
+  controls.autoRotateSpeed = 0.2
   controls.update();
 
   const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
   directionalLight.position.set(-10, 30, -3);
   directionalLight.target.position.set(0, 0, 0);
   scene.add(directionalLight);
-  objectControls = new ObjectControls(camera, renderer.domElement, gimbal);
-  objectControls.disableZoom();
-  objectControls.enableHorizontalRotation();
-  objectControls.setRotationSpeed(0.04);
+  //objectControls = new ObjectControls(camera, renderer.domElement, gimbal);
+  //objectControls.disableZoom();
+  //objectControls.enableHorizontalRotation();
+  //objectControls.setRotationSpeed(0.04);
 
   const listener = new THREE.AudioListener();
   camera.add(listener);
@@ -188,23 +195,29 @@ function animate() {
   if (mixer) mixer.update(delta);
 
   if (clock.elapsedTime < 1) {
-    gsap.to(rotateTip, {delay: 1.5,duration: 2, opacity: 1 , ease:"power.in"});
+    
+    gsap.to(rotateTip.style, {delay: 1.5,duration: 2, opacity: 1 , ease:"power.in"});
     gsap.to(gimbal.rotation, { y: 0 });
   }else if(clock.elapsedTime > 3){
-    gsap.to(rotateTip, {duration: 1, opacity: 0 , ease:"power2.out"});
-  }
-  if(!objectControls.isUserInteractionActive() && clock.elapsedTime > 1){
-   gimbal.rotation.y += 0.001;
+    gsap.to(rotateTip.style, {duration: 1, opacity: 0 , ease:"power2.out"});
   }
 
+ 
+  controls.update()
+  renderer.autoClear = true;
+  gimbal.visible = false
   sprites.forEach((sprite) => {
+    sprite.visible = true
     sprite.translateOnAxis(sprite.up, 0.2)
     if (sprite.position.x > 500 || sprite.position.x < -500 || sprite.position.y > 440 || sprite.position.y < -440) {
       sprite.position.set((Math.random() * 800) - 400, (Math.random() * 380) - 190, -470 - (Math.random() * 100))
       sprite.up = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 2 - 1, 0);
     }
   })
-
-  controls.update()
+  renderer.render(scene, bg_camera);
+  renderer.autoClear = false;
+  sprites.forEach((sprite) => {
+  sprite.visible = false})
+  gimbal.visible = true
   renderer.render(scene, camera);
 }
